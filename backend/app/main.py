@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,15 +15,32 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import Settings
 from app.core.errors import DomainError
 from app.providers.base import Clock, MarketDataFetcher, SystemClock
-from app.providers.yfinance_provider import MarketDataProvider, YFinanceFetcher
+from app.providers.yfinance_provider import (
+    MarketDataProvider,
+    YFinanceFetcher,
+    ensure_ascii_ca_bundle,
+)
 from app.routers import calculator, holdings, market
 from app.storage.holdings_store import JsonHoldingsStore
+
+logger = logging.getLogger("app")
 
 HTTP_STATUS_CODE_MAP: dict[int, str] = {
     404: "NOT_FOUND",
     409: "BASE_LOT_EXISTS",
     422: "VALIDATION_ERROR",
 }
+
+
+def _configure_logging(cfg: Settings) -> None:
+    level = getattr(logging, cfg.log_level)
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(level)
+    if not logging.getLogger().handlers and not app_logger.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        )
 
 
 def _format_request_validation_error(exc: RequestValidationError) -> str:
@@ -41,10 +62,38 @@ def create_app(
     active_clock = clock or SystemClock()
     active_fetcher = fetcher or YFinanceFetcher()
 
+    @asynccontextmanager
+    async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+        _configure_logging(cfg)
+        cfg.data_dir.mkdir(parents=True, exist_ok=True)
+        ca_bundle = ensure_ascii_ca_bundle()
+        if ca_bundle is not None:
+            logger.info("Configured ASCII CURL_CA_BUNDLE at %s", ca_bundle)
+
+        app_instance.state.settings = cfg
+        app_instance.state.market_provider = MarketDataProvider(
+            fetcher=active_fetcher,
+            cache_path=cfg.data_dir / "atr_cache.json",
+            clock=active_clock,
+        )
+        app_instance.state.holdings_repo = JsonHoldingsStore(cfg.data_dir / "holdings.json")
+        logger.info(
+            "Quant Zifang API started (env=%s, log_level=%s, data_dir=%s)",
+            cfg.env,
+            cfg.log_level,
+            cfg.data_dir,
+        )
+        try:
+            yield
+        finally:
+            logger.info("Quant Zifang API shutting down")
+
     application = FastAPI(
         title="Quant Zifang（張良）API",
         description="每日開盤前一次頻率的交易掛單決策支援系統（波動率自適應網格 VAG Grid）",
         version="0.1.0",
+        debug=cfg.env == "dev",
+        lifespan=lifespan,
     )
 
     application.add_middleware(
@@ -54,14 +103,6 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    application.state.settings = cfg
-    application.state.market_provider = MarketDataProvider(
-        fetcher=active_fetcher,
-        cache_path=cfg.data_dir / "atr_cache.json",
-        clock=active_clock,
-    )
-    application.state.holdings_repo = JsonHoldingsStore(cfg.data_dir / "holdings.json")
 
     @application.exception_handler(DomainError)
     async def domain_error_handler(_request: Request, exc: DomainError) -> JSONResponse:

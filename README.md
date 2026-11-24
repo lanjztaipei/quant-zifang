@@ -25,7 +25,7 @@ backend/
 │   ├── routers/         # /api/v1/market、/api/v1/calculator、/api/v1/holdings
 │   ├── config.py        # pydantic-settings 環境設定（ENV、LOG_LEVEL、DATA_DIR、CORS_ORIGINS，支援 .env）
 │   ├── dependencies.py  # FastAPI 依賴注入
-│   └── main.py          # FastAPI 應用工廠、CORS 與統一錯誤處理
+│   └── main.py          # FastAPI 應用工廠、lifespan 生命週期、CORS 與統一錯誤處理
 ├── tests/               # pytest 全 mock 測試（涵蓋所有黃金案例與 API 守衛）
 ├── .python-version      # 鎖定 Python 版本（3.12）
 ├── pyproject.toml       # 專案依賴、dev 依賴與 pytest 設定（單一真相來源）

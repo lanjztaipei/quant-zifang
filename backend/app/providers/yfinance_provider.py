@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import threading
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -23,25 +24,47 @@ from app.storage.json_store import JsonFileStore
 
 MIN_BARS_FOR_ATR50 = 51
 
+_CA_BUNDLE_LOCK = threading.Lock()
 
-def _ensure_ascii_ca_bundle() -> None:
-    """Work around libcurl/curl_cffi error 77 on Windows when certifi path has non-ASCII chars."""
-    if os.environ.get("CURL_CA_BUNDLE"):
-        return
-    ca_src = certifi.where()
-    if ca_src.isascii():
-        return
-    ca_dst = Path(tempfile.gettempdir()) / "quant_zifang_cacert.pem"
-    if not ca_dst.exists() or ca_dst.stat().st_size != Path(ca_src).stat().st_size:
-        shutil.copyfile(ca_src, ca_dst)
-    os.environ["CURL_CA_BUNDLE"] = str(ca_dst)
+
+def ensure_ascii_ca_bundle() -> Path | None:
+    """Work around libcurl/curl_cffi error 77 on Windows when certifi path has non-ASCII chars.
+
+    Intended to run once during application startup (FastAPI lifespan) so concurrent
+    request threads never mutate process-wide ``os.environ`` or race on file writes.
+    """
+    with _CA_BUNDLE_LOCK:
+        if os.environ.get("CURL_CA_BUNDLE"):
+            return None
+        ca_src = certifi.where()
+        if ca_src.isascii():
+            return None
+
+        tmp_dir = Path(tempfile.gettempdir())
+        ca_dst = tmp_dir / "quant_zifang_cacert.pem"
+        src_size = Path(ca_src).stat().st_size
+        if not ca_dst.exists() or ca_dst.stat().st_size != src_size:
+            fd, tmp_name = tempfile.mkstemp(
+                prefix="quant_zifang_cacert_",
+                suffix=".tmp",
+                dir=str(tmp_dir),
+            )
+            os.close(fd)
+            try:
+                shutil.copyfile(ca_src, tmp_name)
+                os.replace(tmp_name, ca_dst)
+            except BaseException:
+                Path(tmp_name).unlink(missing_ok=True)
+                raise
+
+        os.environ["CURL_CA_BUNDLE"] = str(ca_dst)
+        return ca_dst
 
 
 class YFinanceFetcher:
     """Fetches 2 years of auto-adjusted daily OHLC bars via yfinance (no `.info`)."""
 
     def fetch_daily_bars(self, symbol: str) -> list[OHLCBar]:
-        _ensure_ascii_ca_bundle()
         ticker = yf.Ticker(symbol)
         df = ticker.history(period="2y", auto_adjust=True)
         if df is None or df.empty:
