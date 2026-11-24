@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from app.core.decimal_utils import round_trail_pct
 from app.core.errors import ValidationError
 from app.core.strategy import HoldingLotInput, StrategyInput, compute_strategy
 
@@ -554,3 +555,90 @@ def test_strategy_validation_rejects_invalid_inputs(kwargs: dict[str, Any]) -> N
     base.update(kwargs)
     with pytest.raises(ValidationError):
         compute_strategy(StrategyInput(**base))
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (Decimal("0.002567"), Decimal("0.0026")),
+        (Decimal("0.002549"), Decimal("0.0025")),
+        (Decimal("0.00255"), Decimal("0.0026")),  # banker's rounding -> even
+        (Decimal("0.00245"), Decimal("0.0024")),  # banker's rounding -> even
+        (Decimal("0.00004"), Decimal("0.0000")),
+        (Decimal("0"), Decimal("0.0000")),
+    ],
+)
+def test_round_trail_pct_bankers_rounding(raw: Decimal, expected: Decimal) -> None:
+    assert round_trail_pct(raw) == expected
+
+
+def test_trail_buffer_y_rounded_before_downstream_calculations() -> None:
+    # b * atr_14_pct = 0.1 * 0.0255 = 0.00255 -> banker's rounding to 0.0026 (0.26%)
+    res = compute_strategy(
+        StrategyInput(
+            symbol="AAPL",
+            B=Decimal("100000"),
+            initial_price=Decimal("1000"),
+            P0=Decimal("0.3"),
+            a=Decimal("0.6"),
+            b=Decimal("0.1"),
+            c=Decimal("0.5"),
+            K=Decimal("1.2"),
+            atr_14_pct=Decimal("0.0255"),
+            atr_50_pct=Decimal("0.05"),
+            holdings=(
+                HoldingLotInput(id="lot-1", type="base", price=Decimal("1000"), shares=30),
+                HoldingLotInput(id="lot-2", type="grid", price=Decimal("970"), shares=25),
+            ),
+        )
+    )
+
+    assert res.params_summary.y == Decimal("0.002600")
+
+    grid_lot = res.holdings[1]
+    assert grid_lot.tp == Decimal("982.37")
+    assert grid_lot.tp_trail_pct == Decimal("0.002600")
+    assert grid_lot.reverse_buy is not None
+    assert grid_lot.reverse_buy.buy_trigger_price == Decimal("952.90")
+    assert grid_lot.reverse_buy.buy_trail_pct == Decimal("0.002600")
+    # 952.90 * (1 + 0.0026) = 955.37754 -> 955.38 (raw 0.00255 would give 955.33)
+    assert grid_lot.reverse_buy.buy_max_price == Decimal("955.38")
+
+    assert len(res.future_grid) == 1
+    lvl1 = res.future_grid[0]
+    assert lvl1.P_j == Decimal("940.90")
+    assert lvl1.buy_trail_pct == Decimal("0.002600")
+    # 940.90 * (1 + 0.0026) = 943.34634 -> 943.35 (raw 0.00255 would give 943.30)
+    assert lvl1.P_j_max == Decimal("943.35")
+    assert lvl1.Q_j == 48
+    # 54250 + 48 * 940.90 * (1 + 0.0013) = 99471.91216 -> 99471.91 (raw 0.00255 would give 99470.78)
+    assert lvl1.cum_invest == Decimal("99471.91")
+    assert lvl1.reverse_sell.sell_trail_pct == Decimal("0.002600")
+
+
+def test_trail_buffer_y_rounded_affects_q_j_denominator() -> None:
+    # Budget_1 = 2072.50 - 1100 = 972.50, P_1 = 97.00
+    # With raw y=0.00255: 972.50 / (97 * 1.00255) = 10.00027 -> Q_1 = 10
+    # With rounded y=0.0026: 972.50 / (97 * 1.0026) = 9.99977 -> Q_1 = 9
+    res = compute_strategy(
+        StrategyInput(
+            symbol="AAPL",
+            B=Decimal("2072.50"),
+            initial_price=Decimal("100"),
+            P0=Decimal("0.3"),
+            a=Decimal("0.6"),
+            b=Decimal("0.1"),
+            c=Decimal("0.5"),
+            K=Decimal("1.2"),
+            atr_14_pct=Decimal("0.0255"),
+            atr_50_pct=Decimal("0.05"),
+            holdings=(
+                HoldingLotInput(id="lot-1", type="base", price=Decimal("100"), shares=10),
+                HoldingLotInput(id="lot-2", type="grid", price=Decimal("100"), shares=1),
+            ),
+        )
+    )
+
+    assert res.params_summary.y == Decimal("0.002600")
+    assert len(res.future_grid) == 1
+    assert res.future_grid[0].Q_j == 9

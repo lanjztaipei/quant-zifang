@@ -15,6 +15,7 @@ from app.core.decimal_utils import (
     floor_int,
     round_price,
     round_ratio,
+    round_trail_pct,
 )
 from app.core.errors import ValidationError
 
@@ -319,7 +320,7 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
 
     with decimal_context():
         b_eff = inp.B + inp.realized_profit
-        y = inp.b * inp.atr_14_pct
+        y = round_trail_pct(inp.b * inp.atr_14_pct)
         z = inp.c * inp.atr_14_pct
         y_rounded = round_ratio(y)
 

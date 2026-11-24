@@ -23,6 +23,7 @@ getcontext().prec = DECIMAL_PREC
 DefaultContext.prec = DECIMAL_PREC
 
 PRICE_QUANT = Decimal("0.01")
+TRAIL_PCT_QUANT = Decimal("0.0001")
 RATIO_QUANT = Decimal("0.000001")
 FLOOR_QUANT = Decimal("0.0000000001")
 ZERO = Decimal("0")
@@ -73,6 +74,13 @@ def round_ratio(value: Decimal) -> Decimal:
     with decimal_context():
         rounded = value.quantize(RATIO_QUANT, rounding=ROUND_HALF_EVEN)
         return Decimal("0.000000") if rounded == ZERO else rounded
+
+
+def round_trail_pct(value: Decimal) -> Decimal:
+    """Round trailing buffer ratio to 4 decimal places (0.01% = 2 pct decimals) via ROUND_HALF_EVEN."""
+    with decimal_context():
+        rounded = value.quantize(TRAIL_PCT_QUANT, rounding=ROUND_HALF_EVEN)
+        return Decimal("0.0000") if rounded == ZERO else rounded
 
 
 def floor_int(value: Decimal) -> int:
