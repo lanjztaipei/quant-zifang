@@ -39,7 +39,12 @@ def make_client(tmp_path: Path):
         fetcher: FakeMarketDataFetcher | None = None,
         cors_origins: tuple[str, ...] = ("http://localhost:5173",),
     ) -> TestClient:
-        settings = Settings(data_dir=tmp_path, cors_origins=cors_origins)
+        settings = Settings(
+            env="dev",
+            log_level="INFO",
+            data_dir=tmp_path,
+            cors_origins=cors_origins,
+        )
         app = create_app(
             settings=settings,
             clock=clock or FixedClock(datetime(2026, 11, 23, 16, 0, tzinfo=UTC)),
