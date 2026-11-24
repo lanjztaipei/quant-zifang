@@ -120,6 +120,39 @@ def test_calculator_compute_rounds_trail_buffer_y_to_two_pct_decimals(make_clien
     assert body["future_grid"][0]["P_j_max"] == "943.35"
 
 
+def test_calculator_compute_cumulative_post_retain_pool_in_api_response(make_client) -> None:
+    client = make_client()
+    resp = client.post(
+        "/api/v1/calculator/compute",
+        json={
+            "symbol": "AAPL",
+            "B": "20000",
+            "initial_price": "100",
+            "P0": "0.3",
+            "a": "0.6",
+            "b": "0.1",
+            "c": "0.5",
+            "K": "6",
+            "base_profit_pool": "80",
+            "atr_14_pct": "0.04",
+            "atr_50_pct": "0.05",
+            "holdings": [
+                {"id": "base-1", "type": "base", "price": "100", "shares": 30},
+                {"id": "grid-hi", "type": "grid", "price": "97.00", "shares": 25},
+                {"id": "grid-lo", "type": "grid", "price": "96.50", "shares": 25},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    _, grid_hi, grid_lo = body["holdings"]
+    assert grid_lo["retain_shares"] == 0
+    assert grid_lo["proj_base_pool"] == "93.00"
+    assert grid_hi["retain_shares"] == 1
+    assert grid_hi["sell_shares"] == 24
+    assert grid_hi["proj_base_pool"] == "7.32"
+
+
 def test_gc05f_gc05h_gc05i_gc05j_gc05k_holdings_lifecycle(tmp_path: Path, make_client) -> None:
     client = make_client()
 

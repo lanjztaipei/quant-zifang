@@ -353,66 +353,75 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
             m = sum(1 for lot in inp.holdings if lot.type == "grid")
             effective_lots = list(inp.holdings)
 
-        # Computed lots (parent TP sell order + reverse buy child order)
-        computed_lots: list[ComputedLot] = []
+        one_minus_half_y = ONE - HALF * y
+
+        # Computed lots (parent TP sell order + reverse buy child order).
+        # Grid lots accumulate base_profit_pool in ascending TP order (lowest TP sells first),
+        # while preserving the caller's original lot order in the output.
+        computed_by_index: list[ComputedLot | None] = [None] * len(effective_lots)
+        grid_entries: list[tuple[Decimal, int, HoldingLotInput]] = []
         base_shares = 0
         grid_shares = 0
-        for lot in effective_lots:
+        for idx, lot in enumerate(effective_lots):
             if lot.type == "base":
                 base_shares += lot.shares
-                computed_lots.append(
-                    ComputedLot(
-                        id=lot.id,
-                        type="base",
-                        price=round_price(lot.price),
-                        shares=lot.shares,
-                        filled_at=lot.filled_at,
-                        note=lot.note,
-                        tp=None,
-                        tp_trail_pct=None,
-                        tp_reached=None,
-                        expected_profit=None,
-                        proj_base_pool=None,
-                        retain_shares=0,
-                        sell_shares=0,
-                        reverse_buy=None,
-                    )
+                computed_by_index[idx] = ComputedLot(
+                    id=lot.id,
+                    type="base",
+                    price=round_price(lot.price),
+                    shares=lot.shares,
+                    filled_at=lot.filled_at,
+                    note=lot.note,
+                    tp=None,
+                    tp_trail_pct=None,
+                    tp_reached=None,
+                    expected_profit=None,
+                    proj_base_pool=None,
+                    retain_shares=0,
+                    sell_shares=0,
+                    reverse_buy=None,
                 )
             else:
                 grid_shares += lot.shares
                 tp = round_price(lot.price * (ONE + z))
-                tp_reached = (inp.current_price >= tp) if inp.current_price is not None else None
-                delta_pi_lot = Decimal(lot.shares) * (tp - lot.price)
-                pool_proj = inp.base_profit_pool + delta_pi_lot * inp.P0
-                retain_shares = (
-                    min(lot.shares, max(0, floor_int(pool_proj / tp))) if tp > ZERO else 0
-                )
-                sell_shares = lot.shares - retain_shares
-                buy_trigger = round_price(tp * (ONE - x))
-                buy_max = round_price(buy_trigger * (ONE + y))
-                computed_lots.append(
-                    ComputedLot(
-                        id=lot.id,
-                        type="grid",
-                        price=round_price(lot.price),
-                        shares=lot.shares,
-                        filled_at=lot.filled_at,
-                        note=lot.note,
-                        tp=tp,
-                        tp_trail_pct=y_rounded,
-                        tp_reached=tp_reached,
-                        expected_profit=round_price(delta_pi_lot),
-                        proj_base_pool=round_price(pool_proj),
-                        retain_shares=retain_shares,
-                        sell_shares=sell_shares,
-                        reverse_buy=ReverseBuyOrder(
-                            buy_trigger_price=buy_trigger,
-                            buy_trail_pct=y_rounded,
-                            buy_max_price=buy_max,
-                            shares=sell_shares,
-                        ),
-                    )
-                )
+                grid_entries.append((tp, idx, lot))
+
+        running_pool = inp.base_profit_pool
+        for tp, idx, lot in sorted(grid_entries, key=lambda item: (item[0], item[1])):
+            tp_reached = (inp.current_price >= tp) if inp.current_price is not None else None
+            tp_est = tp * one_minus_half_y
+            delta_pi_lot = Decimal(lot.shares) * (tp_est - lot.price)
+            pool_avail = running_pool + delta_pi_lot * inp.P0
+            retain_shares = (
+                min(lot.shares, max(0, floor_int(pool_avail / tp_est))) if tp_est > ZERO else 0
+            )
+            sell_shares = lot.shares - retain_shares
+            running_pool = pool_avail - Decimal(retain_shares) * tp_est
+            buy_trigger = round_price(tp * (ONE - x))
+            buy_max = round_price(buy_trigger * (ONE + y))
+            computed_by_index[idx] = ComputedLot(
+                id=lot.id,
+                type="grid",
+                price=round_price(lot.price),
+                shares=lot.shares,
+                filled_at=lot.filled_at,
+                note=lot.note,
+                tp=tp,
+                tp_trail_pct=y_rounded,
+                tp_reached=tp_reached,
+                expected_profit=round_price(delta_pi_lot),
+                proj_base_pool=round_price(running_pool),
+                retain_shares=retain_shares,
+                sell_shares=sell_shares,
+                reverse_buy=ReverseBuyOrder(
+                    buy_trigger_price=buy_trigger,
+                    buy_trail_pct=y_rounded,
+                    buy_max_price=buy_max,
+                    shares=sell_shares,
+                ),
+            )
+
+        computed_lots: list[ComputedLot] = [item for item in computed_by_index if item is not None]
 
         total_shares = base_shares + grid_shares
         avg_cost = round_price(c_now / Decimal(total_shares)) if total_shares > 0 else None
@@ -459,10 +468,14 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
                 cum_e += e_j
                 cum_invest = round_price(c_now + cum_e)
                 tp_j = round_price(p_j * one_plus_z)
-                delta_pi_j = Decimal(q_j) * (tp_j - p_j)
-                pool_proj_j = inp.base_profit_pool + delta_pi_j * inp.P0
-                retain_j = min(q_j, max(0, floor_int(pool_proj_j / tp_j))) if tp_j > ZERO else 0
+                tp_est_j = tp_j * one_minus_half_y
+                delta_pi_j = Decimal(q_j) * (tp_est_j - p_j)
+                pool_avail_j = inp.base_profit_pool + delta_pi_j * inp.P0
+                retain_j = (
+                    min(q_j, max(0, floor_int(pool_avail_j / tp_est_j))) if tp_est_j > ZERO else 0
+                )
                 sell_j = q_j - retain_j
+                pool_after_j = pool_avail_j - Decimal(retain_j) * tp_est_j
                 breached = (inp.current_price <= p_j) if inp.current_price is not None else None
                 future_grid.append(
                     FutureGridLevel(
@@ -478,7 +491,7 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
                             sell_trigger_price=tp_j,
                             sell_trail_pct=y_rounded,
                             expected_profit=round_price(delta_pi_j),
-                            proj_base_pool=round_price(pool_proj_j),
+                            proj_base_pool=round_price(pool_after_j),
                             retain_shares=retain_j,
                             sell_shares=sell_j,
                         ),
