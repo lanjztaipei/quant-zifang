@@ -1,0 +1,11 @@
+backend/.venv/
+backend/data/
+data/
+.env
+.env.*
+!.env.example
+backend/.pytest_cache/
+**/__pycache__/
+*.pyc
+*.pyo
+*.lock
