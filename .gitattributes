@@ -1,0 +1,26 @@
+# Normalize all text files to LF across Windows and Linux (CI)
+* text=auto eol=lf
+
+*.py text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.txt text eol=lf
+
+# Windows scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+
+# Collapse lockfile diffs on GitHub PRs
+uv.lock linguist-generated=true
