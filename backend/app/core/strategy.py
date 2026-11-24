@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Literal, Sequence
+from typing import Literal
 
 from app.core.decimal_utils import (
     ONE,
@@ -379,15 +380,11 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
             else:
                 grid_shares += lot.shares
                 tp = round_price(lot.price * (ONE + z))
-                tp_reached = (
-                    (inp.current_price >= tp) if inp.current_price is not None else None
-                )
+                tp_reached = (inp.current_price >= tp) if inp.current_price is not None else None
                 delta_pi_lot = Decimal(lot.shares) * (tp - lot.price)
                 pool_proj = inp.base_profit_pool + delta_pi_lot * inp.P0
                 retain_shares = (
-                    min(lot.shares, max(0, floor_int(pool_proj / tp)))
-                    if tp > ZERO
-                    else 0
+                    min(lot.shares, max(0, floor_int(pool_proj / tp))) if tp > ZERO else 0
                 )
                 sell_shares = lot.shares - retain_shares
                 buy_trigger = round_price(tp * (ONE - x))
@@ -417,9 +414,7 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
                 )
 
         total_shares = base_shares + grid_shares
-        avg_cost = (
-            round_price(c_now / Decimal(total_shares)) if total_shares > 0 else None
-        )
+        avg_cost = round_price(c_now / Decimal(total_shares)) if total_shares > 0 else None
 
         # Boundary checks & warnings in required order:
         # NO_POSITION, BUDGET_EXHAUSTED, GRID_FULL
@@ -437,9 +432,7 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
                 )
             )
         if n_rem <= 0:
-            warnings.append(
-                WarningItem(code="GRID_FULL", message=WARNING_MESSAGES["GRID_FULL"])
-            )
+            warnings.append(WarningItem(code="GRID_FULL", message=WARNING_MESSAGES["GRID_FULL"]))
 
         # Future grid levels
         future_grid: list[FutureGridLevel] = []
@@ -455,9 +448,9 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
             one_plus_r = ONE + r_new
 
             for j in range(1, n_rem + 1):
-                p_j = round_price(p_anchor * (one_minus_x ** j))
+                p_j = round_price(p_anchor * (one_minus_x**j))
                 p_j_max = round_price(p_j * one_plus_y)
-                c_theo_j = b_eff if j == n_rem else c_now * (one_plus_r ** j)
+                c_theo_j = b_eff if j == n_rem else c_now * (one_plus_r**j)
                 budget_j = c_theo_j - (c_now + cum_e)
                 denom = p_j * one_plus_y
                 q_j = max(0, floor_int(budget_j / denom)) if denom > ZERO else 0
@@ -467,17 +460,9 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
                 tp_j = round_price(p_j * one_plus_z)
                 delta_pi_j = Decimal(q_j) * (tp_j - p_j)
                 pool_proj_j = inp.base_profit_pool + delta_pi_j * inp.P0
-                retain_j = (
-                    min(q_j, max(0, floor_int(pool_proj_j / tp_j)))
-                    if tp_j > ZERO
-                    else 0
-                )
+                retain_j = min(q_j, max(0, floor_int(pool_proj_j / tp_j))) if tp_j > ZERO else 0
                 sell_j = q_j - retain_j
-                breached = (
-                    (inp.current_price <= p_j)
-                    if inp.current_price is not None
-                    else None
-                )
+                breached = (inp.current_price <= p_j) if inp.current_price is not None else None
                 future_grid.append(
                     FutureGridLevel(
                         j=j,
@@ -501,9 +486,7 @@ def compute_strategy(inp: StrategyInput) -> StrategyResult:
 
         max_safe_drop = round_ratio(ONE - (ONE - x) ** N)
         remaining_cover = (
-            Decimal("0.000000")
-            if n_rem <= 0
-            else round_ratio(ONE - (ONE - x) ** n_rem)
+            Decimal("0.000000") if n_rem <= 0 else round_ratio(ONE - (ONE - x) ** n_rem)
         )
 
         params_summary = StrategyParamsSummary(

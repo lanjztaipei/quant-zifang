@@ -125,7 +125,9 @@ def test_market_invalid_symbol_returns_422(make_client) -> None:
     assert resp.json()["code"] == "VALIDATION_ERROR"
 
 
-def test_yfinance_fetcher_uses_history_auto_adjust_and_never_info(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_yfinance_fetcher_uses_history_auto_adjust_and_never_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict = {}
 
     class DummyTicker:

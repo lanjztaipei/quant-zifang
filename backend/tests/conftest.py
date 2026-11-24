@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -42,7 +42,7 @@ def make_client(tmp_path: Path):
         settings = Settings(data_dir=tmp_path, cors_origins=cors_origins)
         app = create_app(
             settings=settings,
-            clock=clock or FixedClock(datetime(2026, 11, 23, 16, 0, tzinfo=timezone.utc)),
+            clock=clock or FixedClock(datetime(2026, 11, 23, 16, 0, tzinfo=UTC)),
             fetcher=fetcher or FakeMarketDataFetcher(),
         )
         return TestClient(app)

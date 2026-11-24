@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from app.core.decimal_utils import ZERO, decimal_context, round_ratio
 from app.core.errors import ValidationError
@@ -51,7 +51,9 @@ def compute_wilder_atr(bars: Sequence[OHLCBar], n: int) -> WilderATRResult:
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
         raise ValidationError("ATR 期數 n 必須為正整數")
     if len(bars) < n + 1:
-        raise ValidationError(f"K 棒數量不足，計算 ATR({n}) 至少需要 {n + 1} 根，實際僅 {len(bars)} 根")
+        raise ValidationError(
+            f"K 棒數量不足，計算 ATR({n}) 至少需要 {n + 1} 根，實際僅 {len(bars)} 根"
+        )
 
     latest_close = bars[-1].close
     if latest_close <= ZERO:

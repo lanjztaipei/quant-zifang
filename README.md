@@ -53,11 +53,15 @@ $env:CORS_ORIGINS = "http://localhost:3000,http://localhost:5173"
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 3. 執行測試（Pytest，全 mock 不連網）
+### 3. 執行測試與品質檢查（與 GitHub Actions CI 相同）
 
 ```powershell
 cd backend
-uv run pytest -v
+uv run ruff check app tests
+uv run ruff format --check app tests
+uv run mypy app tests
+uv run pytest --cov=app -v
+uv run pip-audit --strict
 ```
 
 ## API 端點總覽（前綴 `/api/v1`）

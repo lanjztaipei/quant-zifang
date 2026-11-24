@@ -197,7 +197,9 @@ def test_atr_b_60bars_golden() -> None:
 
     res14 = compute_wilder_atr(closed_bars, 14)
     assert len(res14.atr_series) == len(ATR_B_GT_ATR14)
-    for (actual_date, actual_atr), (exp_date, exp_atr) in zip(res14.atr_series, ATR_B_GT_ATR14):
+    for (actual_date, actual_atr), (exp_date, exp_atr) in zip(
+        res14.atr_series, ATR_B_GT_ATR14, strict=True
+    ):
         assert actual_date == exp_date
         assert abs(actual_atr - exp_atr) < Decimal("1e-13")
 
@@ -206,7 +208,9 @@ def test_atr_b_60bars_golden() -> None:
 
     res50 = compute_wilder_atr(closed_bars, 50)
     assert len(res50.atr_series) == len(ATR_B_GT_ATR50)
-    for (actual_date, actual_atr), (exp_date, exp_atr) in zip(res50.atr_series, ATR_B_GT_ATR50):
+    for (actual_date, actual_atr), (exp_date, exp_atr) in zip(
+        res50.atr_series, ATR_B_GT_ATR50, strict=True
+    ):
         assert actual_date == exp_date
         assert abs(actual_atr - exp_atr) < Decimal("1e-13")
 

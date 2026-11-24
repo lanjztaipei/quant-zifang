@@ -9,7 +9,9 @@ class DomainError(Exception):
     status_code: int = 400
     code: str = "DOMAIN_ERROR"
 
-    def __init__(self, message: str, *, code: str | None = None, status_code: int | None = None) -> None:
+    def __init__(
+        self, message: str, *, code: str | None = None, status_code: int | None = None
+    ) -> None:
         super().__init__(message)
         self.message = message
         if code is not None:

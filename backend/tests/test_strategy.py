@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -87,7 +88,7 @@ def test_gc01_new_position_n10() -> None:
         (10, Decimal("85.97"), Decimal("86.18"), 13, Decimal("9981.01"), Decimal("87.04"), 0, 13),
     ]
     assert len(res.future_grid) == len(expected_grid)
-    for lvl, exp in zip(res.future_grid, expected_grid):
+    for lvl, exp in zip(res.future_grid, expected_grid, strict=True):
         j, p_j, p_j_max, q_j, cum, tp_j, ret_j, sell_j = exp
         assert lvl.j == j
         assert lvl.P_j == p_j
@@ -145,7 +146,7 @@ def test_gc02_atr50_gt_atr14() -> None:
         (2, Decimal("94.09"), Decimal("94.47"), 48, Decimal("9955.20"), Decimal("95.97"), 0, 48),
     ]
     assert len(res.future_grid) == 2
-    for lvl, exp in zip(res.future_grid, expected_grid):
+    for lvl, exp in zip(res.future_grid, expected_grid, strict=True):
         j, p_j, p_j_max, q_j, cum, tp_j, ret_j, sell_j = exp
         assert lvl.j == j
         assert lvl.P_j == p_j
@@ -195,7 +196,7 @@ def test_gc03_high_price_q0_rollover() -> None:
         (2, Decimal("470.45"), Decimal("472.33"), 1, Decimal("971.39"), Decimal("479.86"), 0, 1),
     ]
     assert len(res.future_grid) == 2
-    for lvl, exp in zip(res.future_grid, expected_grid):
+    for lvl, exp in zip(res.future_grid, expected_grid, strict=True):
         j, p_j, p_j_max, q_j, cum, tp_j, ret_j, sell_j = exp
         assert lvl.j == j
         assert lvl.P_j == p_j
@@ -327,9 +328,7 @@ def test_gc05b_budget_exhausted() -> None:
             K=Decimal("1.2"),
             atr_14_pct=Decimal("0.04"),
             atr_50_pct=Decimal("0.05"),
-            holdings=(
-                HoldingLotInput(id="lot-1", type="base", price=Decimal("100"), shares=100),
-            ),
+            holdings=(HoldingLotInput(id="lot-1", type="base", price=Decimal("100"), shares=100),),
         )
     )
     assert res.mode == "rebalance"
@@ -539,8 +538,8 @@ def test_gc06_profit_rollover_and_retain_shares() -> None:
         {"holdings": (HoldingLotInput(type="grid", price=Decimal("100"), shares=0),)},
     ],
 )
-def test_strategy_validation_rejects_invalid_inputs(kwargs: dict) -> None:
-    base = {
+def test_strategy_validation_rejects_invalid_inputs(kwargs: dict[str, Any]) -> None:
+    base: dict[str, Any] = {
         "symbol": "AAPL",
         "B": Decimal("10000"),
         "initial_price": Decimal("100"),

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 
@@ -197,19 +196,28 @@ def test_gc05l_not_found_404(make_client) -> None:
     assert client.get("/api/v1/holdings/MISSING").status_code == 404
     assert client.get("/api/v1/holdings/MISSING").json()["code"] == "NOT_FOUND"
     assert client.delete("/api/v1/holdings/MISSING").status_code == 404
-    assert client.post(
-        "/api/v1/holdings/MISSING/lots",
-        json={"type": "grid", "price": 90, "shares": 5},
-    ).status_code == 404
-    assert client.put(
-        "/api/v1/holdings/MISSING/lots/fake-id",
-        json={"type": "grid", "price": 90, "shares": 5},
-    ).status_code == 404
+    assert (
+        client.post(
+            "/api/v1/holdings/MISSING/lots",
+            json={"type": "grid", "price": 90, "shares": 5},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.put(
+            "/api/v1/holdings/MISSING/lots/fake-id",
+            json={"type": "grid", "price": 90, "shares": 5},
+        ).status_code
+        == 404
+    )
     assert client.delete("/api/v1/holdings/MISSING/lots/fake-id").status_code == 404
-    assert client.post(
-        "/api/v1/holdings/MISSING/lots/fake-id/settle",
-        json={"exit_price": 105},
-    ).status_code == 404
+    assert (
+        client.post(
+            "/api/v1/holdings/MISSING/lots/fake-id/settle",
+            json={"exit_price": 105},
+        ).status_code
+        == 404
+    )
 
     # Existing symbol, nonexistent lot_id
     client.put("/api/v1/holdings/AAPL", json={"B": 10000, "initial_price": 100, "P0": 0.3})
@@ -401,7 +409,7 @@ def test_update_lot_conflict_and_put_holdings_atr_validation(make_client) -> Non
         json={"type": "grid", "price": 96.0, "shares": 12, "note": "updated"},
     )
     assert r_ok.status_code == 200
-    updated_lot = next(l for l in r_ok.json()["lots"] if l["id"] == grid_id)
+    updated_lot = next(lot for lot in r_ok.json()["lots"] if lot["id"] == grid_id)
     assert updated_lot["price"] == "96.00"
     assert updated_lot["shares"] == 12
     assert updated_lot["note"] == "updated"

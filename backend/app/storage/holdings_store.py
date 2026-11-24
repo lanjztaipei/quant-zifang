@@ -43,7 +43,7 @@ class StoredLot:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "StoredLot":
+    def from_dict(cls, raw: dict[str, Any]) -> StoredLot:
         return cls(
             id=str(raw["id"]),
             type=raw["type"],
@@ -92,7 +92,7 @@ class StoredHolding:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "StoredHolding":
+    def from_dict(cls, raw: dict[str, Any]) -> StoredHolding:
         return cls(
             symbol=str(raw["symbol"]),
             B=to_decimal(raw["B"], "B"),
@@ -230,7 +230,11 @@ class JsonHoldingsStore:
         if atr14_provided and ((atr_14_pct is None) != (atr_50_pct is None)):
             raise ValidationError("atr_14_pct 與 atr_50_pct 必須同時有值或同時為空")
 
-        if atr_source is not UNSET and atr_source is not None and atr_source not in ("fetched", "manual"):
+        if (
+            atr_source is not UNSET
+            and atr_source is not None
+            and atr_source not in ("fetched", "manual")
+        ):
             raise ValidationError("atr_source 只能為 'fetched' 或 'manual'")
 
         def _mutate(data: dict[str, Any]) -> StoredHolding:

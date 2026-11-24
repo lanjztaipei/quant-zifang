@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from filelock import FileLock
 
@@ -49,10 +51,8 @@ class JsonFileStore:
                 os.fsync(tmp_file.fileno())
             os.replace(tmp_name, self.path)
         except Exception:
-            try:
+            with suppress(OSError):
                 os.unlink(tmp_name)
-            except OSError:
-                pass
             raise
 
     def read(self) -> dict[str, Any]:
