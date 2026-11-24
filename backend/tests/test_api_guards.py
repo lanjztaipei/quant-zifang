@@ -88,6 +88,38 @@ def test_calculator_compute_outputs_decimal_strings_gc01(make_client) -> None:
     assert body["future_grid"][9]["cum_invest"] == "9981.01"
 
 
+def test_calculator_compute_rounds_trail_buffer_y_to_two_pct_decimals(make_client) -> None:
+    client = make_client()
+    resp = client.post(
+        "/api/v1/calculator/compute",
+        json={
+            "symbol": "AAPL",
+            "B": "100000",
+            "initial_price": "1000",
+            "P0": "0.3",
+            "a": "0.6",
+            "b": "0.1",
+            "c": "0.5",
+            "K": "1.2",
+            "atr_14_pct": "0.02567",
+            "atr_50_pct": "0.05",
+            "holdings": [
+                {"id": "lot-1", "type": "base", "price": "1000", "shares": 30},
+                {"id": "lot-2", "type": "grid", "price": "970", "shares": 25},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # 0.1 * 0.02567 = 0.002567 (0.2567%) -> 0.0026 (0.26%), formatted to 6 decimals
+    assert body["params_summary"]["y"] == "0.002600"
+    assert body["holdings"][1]["tp_trail_pct"] == "0.002600"
+    assert body["holdings"][1]["reverse_buy"]["buy_trail_pct"] == "0.002600"
+    assert body["future_grid"][0]["buy_trail_pct"] == "0.002600"
+    assert body["future_grid"][0]["reverse_sell"]["sell_trail_pct"] == "0.002600"
+    assert body["future_grid"][0]["P_j_max"] == "943.35"
+
+
 def test_gc05f_gc05h_gc05i_gc05j_gc05k_holdings_lifecycle(tmp_path: Path, make_client) -> None:
     client = make_client()
 
