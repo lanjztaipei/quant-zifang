@@ -261,8 +261,9 @@ def test_gc04_rebalance_bankers_rounding_and_bidirectional_orders() -> None:
     assert grid_lot.tp == Decimal("98.43")
     assert grid_lot.tp_trail_pct == Decimal("0.004000")
     assert grid_lot.tp_reached is True
-    assert grid_lot.expected_profit == Decimal("48.25")
-    assert grid_lot.proj_base_pool == Decimal("14.48")
+    # Conservative midpoint exit price: 98.43 * (1 - 0.5 * 0.004) = 98.23314
+    assert grid_lot.expected_profit == Decimal("43.33")
+    assert grid_lot.proj_base_pool == Decimal("13.00")
     assert grid_lot.retain_shares == 0
     assert grid_lot.sell_shares == 25
     assert grid_lot.reverse_buy is not None
@@ -490,6 +491,8 @@ def test_gc06_profit_rollover_and_retain_shares() -> None:
     lot2 = res.holdings[1]
     assert lot2.tp == Decimal("98.43")
     assert lot2.tp_reached is False
+    assert lot2.expected_profit == Decimal("43.33")
+    assert lot2.proj_base_pool == Decimal("4.77")
     assert lot2.retain_shares == 1
     assert lot2.sell_shares == 24
     assert lot2.reverse_buy is not None
@@ -506,6 +509,8 @@ def test_gc06_profit_rollover_and_retain_shares() -> None:
     assert lvl1.cum_invest == Decimal("10477.01")
     assert lvl1.TP_j == Decimal("95.47")
     assert lvl1.breached is True
+    assert lvl1.reverse_sell.expected_profit == Decimal("90.67")
+    assert lvl1.reverse_sell.proj_base_pool == Decimal("21.92")
     assert lvl1.reverse_sell.retain_shares == 1
     assert lvl1.reverse_sell.sell_shares == 53
 
@@ -642,3 +647,126 @@ def test_trail_buffer_y_rounded_affects_q_j_denominator() -> None:
     assert res.params_summary.y == Decimal("0.002600")
     assert len(res.future_grid) == 1
     assert res.future_grid[0].Q_j == 9
+
+
+def test_cumulative_pool_prevents_double_spending_and_keeps_future_grid_independent() -> None:
+    # Input grid lots in descending price order (high TP first, low TP second).
+    # Lower TP (98.43) sells first, retains 1 share, leaving 4.77 in the pool.
+    # Higher TP (98.94) receives 4.76541 + 13.0659 = 17.83 -> retains 0 shares (no double spending).
+    # Future grid reverse_sell still starts independently from base_profit_pool=90.
+    res = compute_strategy(
+        StrategyInput(
+            symbol="AAPL",
+            B=Decimal("20000"),
+            initial_price=Decimal("100"),
+            P0=Decimal("0.3"),
+            a=Decimal("0.6"),
+            b=Decimal("0.1"),
+            c=Decimal("0.5"),
+            K=Decimal("6"),
+            atr_14_pct=Decimal("0.04"),
+            atr_50_pct=Decimal("0.05"),
+            base_profit_pool=Decimal("90"),
+            holdings=(
+                HoldingLotInput(id="base-1", type="base", price=Decimal("100"), shares=30),
+                HoldingLotInput(id="grid-hi", type="grid", price=Decimal("97.00"), shares=25),
+                HoldingLotInput(id="grid-lo", type="grid", price=Decimal("96.50"), shares=25),
+            ),
+        )
+    )
+
+    # Original order preserved in output
+    assert [lot.id for lot in res.holdings] == ["base-1", "grid-hi", "grid-lo"]
+    _, grid_hi, grid_lo = res.holdings
+
+    assert grid_lo.tp == Decimal("98.43")
+    assert grid_lo.expected_profit == Decimal("43.33")
+    assert grid_lo.retain_shares == 1
+    assert grid_lo.sell_shares == 24
+    assert grid_lo.proj_base_pool == Decimal("4.77")
+    assert grid_lo.reverse_buy is not None
+    assert grid_lo.reverse_buy.shares == 24
+
+    assert grid_hi.tp == Decimal("98.94")
+    assert grid_hi.expected_profit == Decimal("43.55")
+    assert grid_hi.retain_shares == 0
+    assert grid_hi.sell_shares == 25
+    assert grid_hi.proj_base_pool == Decimal("17.83")
+    assert grid_hi.reverse_buy is not None
+    assert grid_hi.reverse_buy.shares == 25
+
+    # Future grid L1 independently uses initial base_profit_pool=90 (not running_pool=17.83)
+    # Q_1=10, P_1=93.60, TP_1=95.47, TP_est_1=95.27906 -> delta_pi=16.79, pool=90+5.04=95.04
+    assert len(res.future_grid) >= 1
+    lvl1 = res.future_grid[0]
+    assert lvl1.Q_j == 10
+    assert lvl1.reverse_sell.expected_profit == Decimal("16.79")
+    assert lvl1.reverse_sell.proj_base_pool == Decimal("95.04")
+    assert lvl1.reverse_sell.retain_shares == 0
+    assert lvl1.reverse_sell.sell_shares == 10
+
+
+def test_cumulative_pool_accumulates_across_lots_to_unlock_retain_share() -> None:
+    # With base_profit_pool=80, neither grid-lo nor grid-hi alone reaches 1 share,
+    # but accumulating grid-lo (80 + 13.00 = 93.00) -> grid-hi (93.00 + 13.07 = 106.06 >= 98.74)
+    # unlocks 1 retain share on grid-hi with post-retain balance 7.32.
+    res = compute_strategy(
+        StrategyInput(
+            symbol="AAPL",
+            B=Decimal("20000"),
+            initial_price=Decimal("100"),
+            P0=Decimal("0.3"),
+            a=Decimal("0.6"),
+            b=Decimal("0.1"),
+            c=Decimal("0.5"),
+            K=Decimal("6"),
+            atr_14_pct=Decimal("0.04"),
+            atr_50_pct=Decimal("0.05"),
+            base_profit_pool=Decimal("80"),
+            holdings=(
+                HoldingLotInput(id="base-1", type="base", price=Decimal("100"), shares=30),
+                HoldingLotInput(id="grid-hi", type="grid", price=Decimal("97.00"), shares=25),
+                HoldingLotInput(id="grid-lo", type="grid", price=Decimal("96.50"), shares=25),
+            ),
+        )
+    )
+
+    _, grid_hi, grid_lo = res.holdings
+    assert grid_lo.retain_shares == 0
+    assert grid_lo.sell_shares == 25
+    assert grid_lo.proj_base_pool == Decimal("93.00")
+
+    assert grid_hi.retain_shares == 1
+    assert grid_hi.sell_shares == 24
+    assert grid_hi.proj_base_pool == Decimal("7.32")
+
+
+def test_cumulative_pool_equal_tp_breaks_tie_by_input_order() -> None:
+    res = compute_strategy(
+        StrategyInput(
+            symbol="AAPL",
+            B=Decimal("20000"),
+            initial_price=Decimal("100"),
+            P0=Decimal("0.3"),
+            a=Decimal("0.6"),
+            b=Decimal("0.1"),
+            c=Decimal("0.5"),
+            K=Decimal("6"),
+            atr_14_pct=Decimal("0.04"),
+            atr_50_pct=Decimal("0.05"),
+            base_profit_pool=Decimal("90"),
+            holdings=(
+                HoldingLotInput(id="grid-first", type="grid", price=Decimal("96.50"), shares=25),
+                HoldingLotInput(id="grid-second", type="grid", price=Decimal("96.50"), shares=25),
+            ),
+        )
+    )
+
+    first, second = res.holdings
+    assert first.id == "grid-first"
+    assert first.retain_shares == 1
+    assert first.proj_base_pool == Decimal("4.77")
+
+    assert second.id == "grid-second"
+    assert second.retain_shares == 0
+    assert second.proj_base_pool == Decimal("17.76")
