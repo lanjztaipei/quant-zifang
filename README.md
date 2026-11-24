@@ -18,29 +18,29 @@ backend/
 │   ├── dependencies.py  # FastAPI 依賴注入
 │   └── main.py          # FastAPI 應用工廠、CORS 與統一錯誤處理
 ├── tests/               # pytest 全 mock 測試（涵蓋所有黃金案例與 API 守衛）
-├── pytest.ini
-└── requirements.txt
+├── .python-version      # 鎖定 Python 版本（3.12）
+├── pyproject.toml       # 專案依賴、dev 依賴與 pytest 設定（單一真相來源）
+└── uv.lock              # 精確套件版本鎖定檔
 ```
 
-## 快速開始（Windows PowerShell）
+## 快速開始（使用 `uv`）
 
-### 1. 安裝相依套件
+先確認已安裝 [uv](https://docs.astral.sh/uv/)（Windows PowerShell 安裝方式：`irm https://astral.sh/uv/install.ps1 | iex`）。
+
+### 1. 同步虛擬環境與相依套件
 
 ```powershell
 cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+uv sync --frozen
 ```
 
-> 若 PowerShell 阻擋執行 `Activate.ps1`，可直接不啟用環境，改用 `.\.venv\Scripts\python.exe -m ...` 執行以下指令，或先執行 `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`。
+> 若在正式部署環境不需要測試工具，可改用 `uv sync --frozen --no-dev`。
 
 ### 2. 啟動後端服務（Uvicorn）
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 啟動後可開啟互動式 API 文件：`http://127.0.0.1:8000/docs`
@@ -50,14 +50,14 @@ cd backend
 ```powershell
 $env:DATA_DIR = "data"
 $env:CORS_ORIGINS = "http://localhost:3000,http://localhost:5173"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ### 3. 執行測試（Pytest，全 mock 不連網）
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m pytest -v
+uv run pytest -v
 ```
 
 ## API 端點總覽（前綴 `/api/v1`）
