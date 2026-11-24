@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date
 import os
-from pathlib import Path
 import shutil
 import tempfile
+from datetime import date
+from pathlib import Path
 from typing import Any
 
 import certifi
@@ -55,11 +55,7 @@ class YFinanceFetcher:
             if pd.isna(high) or pd.isna(low) or pd.isna(close):
                 continue
 
-            bar_date = (
-                idx.date()
-                if hasattr(idx, "date")
-                else date.fromisoformat(str(idx)[:10])
-            )
+            bar_date = idx.date() if hasattr(idx, "date") else date.fromisoformat(str(idx)[:10])
             bars.append(
                 OHLCBar(
                     date=bar_date,

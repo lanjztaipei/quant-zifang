@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from decimal import (
+    ROUND_FLOOR,
+    ROUND_HALF_EVEN,
     Decimal,
     DefaultContext,
     InvalidOperation,
-    ROUND_FLOOR,
-    ROUND_HALF_EVEN,
     getcontext,
     localcontext,
 )
-from typing import Iterator
 
 from app.core.errors import ValidationError
 

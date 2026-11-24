@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from functools import lru_cache
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
@@ -43,6 +44,6 @@ def get_latest_closed_session(now: datetime) -> date:
         close_utc = cal.session_close(ts_today).to_pydatetime()
         if now >= close_utc + CLOSE_BUFFER:
             return today_et
-        return cal.previous_session(ts_today).date()
+        return cast(date, cal.previous_session(ts_today).date())
 
-    return cal.date_to_session(ts_today, direction="previous").date()
+    return cast(date, cal.date_to_session(ts_today, direction="previous").date())

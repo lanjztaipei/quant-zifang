@@ -17,7 +17,7 @@ from app.schemas.holdings import (
     SettlementSummarySchema,
     UpsertHoldingRequest,
 )
-from app.storage.holdings_store import HoldingsRepository, StoredHolding, UNSET
+from app.storage.holdings_store import UNSET, HoldingsRepository, StoredHolding
 
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 

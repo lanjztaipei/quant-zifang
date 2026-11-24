@@ -22,9 +22,11 @@ class Settings:
     cors_origins: tuple[str, ...]
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         data_dir_raw = os.getenv("DATA_DIR") or os.getenv("ZIFANG_DATA_DIR") or "data"
-        cors_raw = os.getenv("CORS_ORIGINS") or os.getenv("ZIFANG_CORS_ORIGINS") or DEFAULT_CORS_ORIGINS
+        cors_raw = (
+            os.getenv("CORS_ORIGINS") or os.getenv("ZIFANG_CORS_ORIGINS") or DEFAULT_CORS_ORIGINS
+        )
         origins = tuple(origin.strip() for origin in cors_raw.split(",") if origin.strip())
         return cls(
             data_dir=Path(data_dir_raw),
