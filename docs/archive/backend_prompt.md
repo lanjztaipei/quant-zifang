@@ -1,3 +1,6 @@
+> [!NOTE]
+> **歷史紀錄（唯讀）**：此檔案為專案建立時的原始初始規格 prompt，僅作開發起點紀錄，不再更新。現行後端規格請見 [docs/backend-spec.md](../docs/backend-spec.md)。
+
 # Quant Zifang（張良）後端規格（首個策略模組：波動率自適應網格 VAG Grid）
 
 > *The strategist in the command tent. A modular decision-support system for daily order planning. (For fully automated execution, see `quant-hanxin`)*
@@ -10,8 +13,7 @@
 - **數值**：所有計算用 `Decimal`（全域 `getcontext().prec = 40`；將外部浮點數如 yfinance K 棒轉為 `Decimal` 時一律先轉字串 `Decimal(str(val))`），不用 float。
 - **捨入**：一律用銀行家捨入（`ROUND_HALF_EVEN`），只在公式標示 `round` 的地方與 API 輸出時捨入，中間計算保留全精度。
   - 價格與金額取到小數第 2 位
-  - 追蹤緩衝 `y` 取到百分比小數第 2 位（即小數第 4 位 `0.0001`，因券商追蹤掛單最多支援百分比兩位小數）；API 輸出仍維持 6 位小數格式以與其他比例欄位一致
-  - 其餘比例取到小數第 6 位
+  - 比例取到小數第 6 位
 - **股數**：一律向下取整。所有 floor（含 ⌊K/a⌋、Q0、Q_j、q_retain）都先用 ROUND_HALF_EVEN 量化到小數第 10 位再取整。
 - **API 數值格式**：Decimal 一律以字串輸出。
 - **錯誤格式**：HTTP 錯誤一律回 `{code, message}`，對應如下：
@@ -52,7 +54,7 @@
 **參數**
 - B_eff = B + realized_profit
 - ATR_eff = max(atr_50_pct, atr_14_pct)
-- x = a × ATR_eff，y = round_4(b × atr_14_pct)（取到小數第 4 位，即百分比第 2 位；後續所有用到 y 的計算都用捨入後的值），z = c × atr_14_pct
+- x = a × ATR_eff，y = b × atr_14_pct，z = c × atr_14_pct
 - N = max(1, ⌊K/a⌋)
 
 **模式與錨點**

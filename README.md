@@ -4,9 +4,18 @@
 
 每日開盤前一次頻率的「交易掛單決策支援系統」，首個策略模組為 **波動率自適應網格（VAG Grid）**。
 
+## 規格與文件
+
+- **現行後端規格（Living Spec）**：[docs/backend-spec.md](docs/backend-spec.md)（完整策略公式、捨入規則、API 契約與設計決策紀錄，隨程式碼同步維護）
+- **原始啟動規格（唯讀歷史紀錄）**：[docs/archive/backend_prompt.md](docs/archive/backend_prompt.md)（保留專案最初的起始 prompt，不再更新）
+
 ## 專案架構
 
 ```text
+docs/
+├── backend-spec.md      # 現行後端規格與設計決策紀錄（Single Source of Truth）
+└── archive/
+    └── backend_prompt.md # 專案初始啟動規格 prompt（唯讀歷史歸檔）
 backend/
 ├── app/
 │   ├── core/            # 純函式策略核心（Decimal prec=40、XNYS 日曆、Wilder ATR、VAG Grid 與結算運算）
