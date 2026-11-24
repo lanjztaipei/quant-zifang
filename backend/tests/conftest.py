@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,25 +34,37 @@ class FakeMarketDataFetcher:
         return list(self.bars_by_symbol.get(symbol, []))
 
 
-@pytest.fixture
-def make_client(tmp_path: Path):
-    def _factory(
+class ClientFactory(Protocol):
+    def __call__(
+        self,
         *,
         clock: FixedClock | None = None,
         fetcher: FakeMarketDataFetcher | None = None,
         cors_origins: tuple[str, ...] = ("http://localhost:5173",),
-    ) -> TestClient:
-        settings = Settings(
-            env="dev",
-            log_level="INFO",
-            data_dir=tmp_path,
-            cors_origins=cors_origins,
-        )
-        app = create_app(
-            settings=settings,
-            clock=clock or FixedClock(datetime(2026, 11, 23, 16, 0, tzinfo=UTC)),
-            fetcher=fetcher or FakeMarketDataFetcher(),
-        )
-        return TestClient(app)
+    ) -> TestClient: ...
 
-    return _factory
+
+@pytest.fixture
+def make_client(tmp_path: Path) -> Iterator[ClientFactory]:
+    with ExitStack() as stack:
+
+        def _factory(
+            *,
+            clock: FixedClock | None = None,
+            fetcher: FakeMarketDataFetcher | None = None,
+            cors_origins: tuple[str, ...] = ("http://localhost:5173",),
+        ) -> TestClient:
+            settings = Settings(
+                env="dev",
+                log_level="INFO",
+                data_dir=tmp_path,
+                cors_origins=cors_origins,
+            )
+            app = create_app(
+                settings=settings,
+                clock=clock or FixedClock(datetime(2026, 11, 23, 16, 0, tzinfo=UTC)),
+                fetcher=fetcher or FakeMarketDataFetcher(),
+            )
+            return stack.enter_context(TestClient(app))
+
+        yield _factory

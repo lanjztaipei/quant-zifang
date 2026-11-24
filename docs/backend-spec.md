@@ -25,6 +25,7 @@
 - **持久化與環境設定**：
   - 使用 `pydantic-settings`（`BaseSettings`）自動載入環境變數與 `.env`（系統環境變數優先，專案根目錄附 `.env.example` 範本）；支援 `ENV`（`dev | prod`，預設 `dev`）、`LOG_LEVEL`（`DEBUG | INFO | WARNING | ERROR | CRITICAL`，預設 `INFO`）、`DATA_DIR`（預設 `data/`）與 `CORS_ORIGINS`（逗號分隔 `http(s)://host[:port]`，禁止萬用字元 `*` 或結尾斜線，預設允許本機 `localhost` / `127.0.0.1` 的 `3000`、`5173`、`8000` 埠），並相容 `ZIFANG_*` 前綴別名。
   - JSON 寫檔一律透過 `filelock` 加鎖並原子寫入（`JsonFileStore`）。
+  - 應用啟動元件初始化（日誌層級、資料目錄建立、Windows 非 ASCII `CURL_CA_BUNDLE` 檢查、`MarketDataProvider` 與 `JsonHoldingsStore` 建置）與優雅關閉皆統一透過 FastAPI `lifespan` 管理，避免在併發請求路徑中修改全域環境變數。
 
 ---
 
