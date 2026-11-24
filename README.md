@@ -36,6 +36,15 @@ uv sync --frozen
 
 > 若在正式部署環境不需要測試工具，可改用 `uv sync --frozen --no-dev`。
 
+#### 啟用本機 Git `pre-commit` 防護（首次設定一次即可）
+
+```powershell
+# 在專案根目錄執行
+uv run --project backend pre-commit install
+```
+
+之後每次 `git commit` 都會在 1～2 秒內自動執行 `ruff` 檢查排版與基本檔案防呆（YAML/TOML/JSON 語法、誤提交私鑰或大檔等）。
+
 ### 2. 啟動後端服務（Uvicorn）
 
 ```powershell
