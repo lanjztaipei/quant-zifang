@@ -9,3 +9,4 @@ backend/.pytest_cache/
 *.pyc
 *.pyo
 *.lock
+!uv.lock
