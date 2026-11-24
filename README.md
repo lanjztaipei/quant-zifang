@@ -23,7 +23,7 @@ backend/
 │   ├── storage/         # filelock + 原子寫入 JSON 持久化（data/holdings.json）
 │   ├── schemas/         # FastAPI Pydantic 請求/回應模型（Decimal 一律字串輸出）
 │   ├── routers/         # /api/v1/market、/api/v1/calculator、/api/v1/holdings
-│   ├── config.py        # 環境變數設定（DATA_DIR、CORS_ORIGINS）
+│   ├── config.py        # pydantic-settings 環境設定（ENV、LOG_LEVEL、DATA_DIR、CORS_ORIGINS，支援 .env）
 │   ├── dependencies.py  # FastAPI 依賴注入
 │   └── main.py          # FastAPI 應用工廠、CORS 與統一錯誤處理
 ├── tests/               # pytest 全 mock 測試（涵蓋所有黃金案例與 API 守衛）
@@ -65,7 +65,17 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 #### 環境變數（選填）
 
+可將專案根目錄的 `.env.example` 複製為 `.env` 進行本機設定（系統環境變數優先於 `.env`）：
+
 ```powershell
+Copy-Item .env.example .env
+```
+
+或直接在終端機指定環境變數啟動：
+
+```powershell
+$env:ENV = "dev"
+$env:LOG_LEVEL = "INFO"
 $env:DATA_DIR = "data"
 $env:CORS_ORIGINS = "http://localhost:3000,http://localhost:5173"
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000

@@ -23,8 +23,8 @@
   - `409`：`BASE_LOT_EXISTS`
 - **策略警示格式**：`warnings: [{"code": "...", "message": "..."}]`（繁體中文）；同時命中多項時全數回傳，固定順序為 `NO_POSITION`、`BUDGET_EXHAUSTED`、`GRID_FULL`。
 - **持久化與環境設定**：
-  - 資料目錄由環境變數 `DATA_DIR`（或 `ZIFANG_DATA_DIR`）設定，預設 `data/`；JSON 寫檔一律透過 `filelock` 加鎖並原子寫入（`JsonFileStore`）。
-  - CORS 允許來源由 `CORS_ORIGINS`（或 `ZIFANG_CORS_ORIGINS`）以逗號分隔設定，預設允許本機 `localhost` / `127.0.0.1` 的 `3000`、`5173`、`8000` 埠。
+  - 使用 `pydantic-settings`（`BaseSettings`）自動載入環境變數與 `.env`（系統環境變數優先，專案根目錄附 `.env.example` 範本）；支援 `ENV`（`dev | prod`，預設 `dev`）、`LOG_LEVEL`（`DEBUG | INFO | WARNING | ERROR | CRITICAL`，預設 `INFO`）、`DATA_DIR`（預設 `data/`）與 `CORS_ORIGINS`（逗號分隔 `http(s)://host[:port]`，禁止萬用字元 `*` 或結尾斜線，預設允許本機 `localhost` / `127.0.0.1` 的 `3000`、`5173`、`8000` 埠），並相容 `ZIFANG_*` 前綴別名。
+  - JSON 寫檔一律透過 `filelock` 加鎖並原子寫入（`JsonFileStore`）。
 
 ---
 
